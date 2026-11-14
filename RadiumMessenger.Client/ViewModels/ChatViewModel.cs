@@ -99,6 +99,8 @@ namespace RadiumMessenger.Client.ViewModels
                 if (message.SenderId == UserId)
                     return;
 
+                _ = _signalRService.MarkAsDeliveredAsync(message.Id, userId);
+
                 Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                 {
                     var chat = Chats.FirstOrDefault(c => c.Id == message.ChatId);
@@ -113,6 +115,20 @@ namespace RadiumMessenger.Client.ViewModels
                         }
 
                         OnPropertyChanged(nameof(Chats));
+                    }
+                });
+            };
+
+            _signalRService.MessageStatusUpdated += (messageId, isDelivered, isRead) =>
+            {
+                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                {
+                    var message = Messages.FirstOrDefault(m => m.Id == messageId);
+
+                    if (message != null)
+                    {
+                        message.IsDelivered = isDelivered;
+                        message.IsRead = isRead;
                     }
                 });
             };

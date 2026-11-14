@@ -74,6 +74,43 @@ namespace RadiumMessenger.Server
                     }
                 }
 
+
+                using (var messageCommand = connection.CreateCommand())
+                {
+                    messageCommand.CommandText = "PRAGMA table_info('Messages')";
+
+                    using var messageReader = await
+                        messageCommand.ExecuteReaderAsync();
+
+                    bool isDeliveredExists = false;
+                    bool isReadExists = false;
+
+                    while (await messageReader.ReadAsync())
+                    {
+                        string columnName = messageReader.GetString(1);
+
+                        if (columnName == "IsDelivered")
+                            isDeliveredExists = true;
+
+                        if (columnName == "IsRead")
+                            isReadExists = true;
+                    }
+
+                    await messageReader.CloseAsync();
+
+                    if (!isDeliveredExists)
+                    {
+                        await db.Database.ExecuteSqlRawAsync(
+                            "ALTER TABLE Messages ADD COLUMN IsDelivered INTEGER NOT NULL DEFAULT 0");
+                    }
+
+                    if (!isReadExists)
+                    {
+                        await db.Database.ExecuteSqlRawAsync(
+                            "ALTER TABLE Messages ADD COLUMN IsRead INTEGER NOT NULL DEFAULT 0");
+                    }
+                }
+
                 await connection.CloseAsync();
 
                 db.Database.ExecuteSqlRaw(@"

@@ -52,10 +52,25 @@ namespace RadiumMessenger.Server.Services
                     message.ChatId,
                     message.SenderId,
                     message.Text,
-                    message.SentAt
+                    message.SentAt,
+                    message.IsDelivered,
+                    message.IsRead
                 });
 
             return message;
+        }
+
+        public async Task MarkAsDeliveredAsync(int messageId)
+        {
+            var message = await _db.Messages
+                .FirstOrDefaultAsync(m => m.Id == messageId);
+
+            if (message == null)
+                return;
+
+            message.IsDelivered = true;
+
+            await _db.SaveChangesAsync();
         }
     }
 }

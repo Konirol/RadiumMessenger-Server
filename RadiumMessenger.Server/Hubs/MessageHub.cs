@@ -28,6 +28,64 @@ namespace RadiumMessenger.Server.Hubs
             );
         }
 
+        public async Task MarkAsDelivered(int messageId, int userId)
+        {
+            var message = await _db.Messages
+                .FirstOrDefaultAsync(m => m.Id == messageId);
+
+            if (message == null)
+                return;
+
+            var chat = await _db.Chats.FirstOrDefaultAsync(c =>
+                c.Id == message.ChatId);
+
+            if (chat == null)
+                return;
+
+            bool isRecipient =
+                (chat.FirstUserId == userId || chat.SecondUserId == userId)
+                && message.SenderId != userId;
+
+            if (!isRecipient)
+                return;
+
+            message.IsDelivered = true;
+            await _db.SaveChangesAsync();
+
+            await Clients.Group($"chat_{message.ChatId}")
+                .SendAsync("MessageStatusUpdated", message.Id, true, message.IsRead);
+        }
+
+        public async Task MarkAsRead(int messageId, int userId)
+        {
+            var message = _db.Messages
+                .FirstOrDefaultAsync(m => m.Id == messageId);
+
+            if (message == null)
+                return;
+
+            var chat = await _db.Chats.FirstOrDefaultAsync(c => 
+                c.Id == message.ChatId);
+
+            if (chat == null) 
+                return;
+
+            bool isRecipient =
+                (chat.FirstUserId == userId || chat.SecondUserId == userId)
+                && message.SenderId != userId;
+
+            if (!isRecipient)
+                return;
+
+            message.IsDelivered = true;
+            message.IsRead = true;
+
+            await _db.SaveChangesAsync();
+
+            await Clients.Group($"chat_{message.ChatId}")
+                .SendAsync("MessageStatusUpdated", message.Id, true, true);
+        }
+
         public async Task LeaveChat(int chatId)
         {
             await Groups.RemoveFromGroupAsync(

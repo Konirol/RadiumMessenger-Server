@@ -11,6 +11,8 @@ namespace RadiumMessenger.Client.Services
 
         public event Action<Message>? MessageReceived;
 
+        public event Action<int, bool, bool>? MessageStatusUpdated;
+
         public async Task ConnectAsync()
         {
             _connection = new HubConnectionBuilder()
@@ -22,6 +24,12 @@ namespace RadiumMessenger.Client.Services
             {
                 MessageReceived?.Invoke(message);
             });
+
+            _connection.On<int, bool, bool>("MessageStatusUpdated",
+                (messageId, isDelivered, isRead) =>
+                {
+                    MessageStatusUpdated?.Invoke(messageId, isDelivered, isRead);
+                });
 
             await _connection.StartAsync();
         }
@@ -40,6 +48,22 @@ namespace RadiumMessenger.Client.Services
             {
                 await _connection.InvokeAsync("LeaveChat", chatId);
             }
+        }
+
+        public async Task MarkAsDeliveredAsync(int messageId, int userId)
+        {
+            if (_connection == null)
+                return;
+
+            await _connection.InvokeAsync("MarkAsDelivered", messageId, userId);
+        }
+
+        public async Task MarkAsReadAsync(int messageId, int userId)
+        {
+            if (_connection == null)
+                return;
+
+            await _connection.InvokeAsync("MarkAsRead", messageId, userId);
         }
 
         public async Task DisconnectAsync()
