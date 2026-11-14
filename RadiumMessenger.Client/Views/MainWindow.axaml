@@ -1,0 +1,48 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:RadiumMessenger.Client.ViewModels"
+        x:Class="RadiumMessenger.Client.Views.MainWindow"
+        x:DataType="vm:AuthViewModel"
+        Width="420"
+        Height="520"
+        Title="Radium Messenger"
+        WindowStartupLocation="CenterScreen">
+
+    <Grid Background="#17191F">
+        <StackPanel Width="300"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Spacing="18">
+
+            <TextBlock Text="RADIUM"
+                       FontSize="34"
+                       FontWeight="Bold"
+                       Foreground="White"
+                       HorizontalAlignment="Center"/>
+
+            <TextBlock Text="Messenger"
+                       FontSize="16"
+                       Foreground="#A0A5B0"
+                       HorizontalAlignment="Center"/>
+
+            <TextBox Watermark="Email"
+                     Text="{Binding Email}"/>
+
+            <TextBox Watermark="Password"
+                     PasswordChar="●"
+                     Text="{Binding Password}"/>
+
+            <Button Content="Войти"
+                    Command="{Binding LoginCommand}"
+                    Background="#5865F2"
+                    Foreground="White"
+                    Height="42"/>
+
+            <TextBlock Text="{Binding ErrorMessage}"
+                       Foreground="#FF7777"
+                       TextWrapping="Wrap"
+                       HorizontalAlignment="Center"/>
+
+        </StackPanel>
+    </Grid>
+</Window>
