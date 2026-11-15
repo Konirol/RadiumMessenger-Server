@@ -13,10 +13,12 @@ namespace RadiumMessenger.Client.Services
 
         public event Action<int, bool, bool>? MessageStatusUpdated;
 
+        public event Action<int>? MessageDeleted;
+
         public async Task ConnectAsync()
         {
             _connection = new HubConnectionBuilder()
-                .WithUrl("https://localhost:7199/messageHub")
+                .WithUrl("http://127.0.0.1:7199/messageHub")
                 .WithAutomaticReconnect()
                 .Build();
 
@@ -30,6 +32,11 @@ namespace RadiumMessenger.Client.Services
                 {
                     MessageStatusUpdated?.Invoke(messageId, isDelivered, isRead);
                 });
+
+            _connection.On<int>("MessageDeleted", messageId =>
+            {
+                MessageDeleted?.Invoke(messageId);
+            });
 
             await _connection.StartAsync();
         }

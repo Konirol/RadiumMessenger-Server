@@ -6,6 +6,7 @@ using RadiumMessenger.Client.Services;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -18,6 +19,33 @@ namespace RadiumMessenger.Client.ViewModels
         private readonly SignalRService _signalRService;
 
         public ObservableCollection<Chat> Chats { get; } = new();
+
+        public ObservableCollection<Chat> ArchivedChats { get; } = new();
+
+        [ObservableProperty]
+        private bool isArchiveSelected;
+
+        public bool ShowChats => !IsArchiveSelected;
+
+        partial void OnIsArchiveSelectedChanged(bool value)
+        {
+            OnPropertyChanged(nameof(ShowChats));
+        }
+
+        [RelayCommand]
+        private void ShowChatsList()
+        {
+            IsArchiveSelected = false;
+        }
+
+        [RelayCommand]
+        private void ShowArchiveList()
+        {
+            IsArchiveSelected = true;
+        }
+
+        [ObservableProperty]
+        private bool isArchivedView;
 
         [ObservableProperty]
         private Chat? selectedChat;
@@ -38,7 +66,14 @@ namespace RadiumMessenger.Client.ViewModels
             {
                 foreach (var message in value.Messages)
                 {
+                    message.CanDeleteForEveryone = message.SenderId == UserId;
+
                     Messages.Add(message);
+
+                    if (message.SenderId != UserId && !message.IsRead)
+                    {
+                        _ = _signalRService.MarkAsReadAsync(message.Id, UserId);
+                    }
                 }
             }
         }
@@ -74,6 +109,8 @@ namespace RadiumMessenger.Client.ViewModels
 
                 if (message != null)
                 {
+                    message.CanDeleteForEveryone = message.SenderId == UserId;
+
                     Messages.Add(message);
                     MessageText = string.Empty;
                 }
@@ -133,6 +170,26 @@ namespace RadiumMessenger.Client.ViewModels
                 });
             };
 
+            _signalRService.MessageDeleted += messageId =>
+            {
+                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                {
+                    var message = Messages.FirstOrDefault(m => m.Id == messageId);
+
+                    if (message != null)
+                        Messages.Remove(message);
+
+                    foreach (var chat in Chats.Concat(ArchivedChats))
+                    {
+                        var deletedMessage = chat.Messages
+                            .FirstOrDefault(m => m.Id == messageId);
+
+                        if (deletedMessage != null)
+                            chat.Messages.Remove(deletedMessage);
+                    }
+                });
+            };
+
             _ = InitializeAsync();
 
         }
@@ -179,10 +236,96 @@ namespace RadiumMessenger.Client.ViewModels
                         await JoinChatAsync(chat.Id);
                     }
                 }
+
+                var archivedChats = await _apiService.GetAsync<List<Chat>>(
+                    $"api/Chat/archived/{UserId}");
+
+                ArchivedChats.Clear();
+
+                if (archivedChats != null)
+                {
+                    foreach (var chat in archivedChats)
+                    {
+                        ArchivedChats.Add(chat);
+                        await JoinChatAsync(chat.Id);
+                    }
+                }
             }
-            catch
+            catch (Exception ex)
             {
-                
+                System.Diagnostics.Debug.WriteLine(ex.Message);
+            }
+        }
+
+        [RelayCommand]
+        private async Task ArchiveChat(Chat chat)
+        {
+            try
+            {
+                await _apiService.PostAsync(
+                    $"api/Chat/archive/{chat.Id}/{UserId}");
+
+                Chats.Remove(chat);
+                ArchivedChats.Add(chat);
+
+                if (SelectedChat?.Id == chat.Id)
+                    SelectedChat = null;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(ex.Message);
+            }
+        }
+
+        [RelayCommand]
+        private async Task UnarchiveChat(Chat chat)
+        {
+            try
+            {
+                await _apiService.PostAsync(
+                    $"api/Chat/unarchive/{chat.Id}/{UserId}");
+
+                ArchivedChats.Remove(chat);
+                Chats.Add(chat);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(ex.Message);
+            }
+        }
+
+        [RelayCommand]
+        private async Task DeleteMessageForMe(Message message)
+        {
+            try
+            {
+                await _apiService.DeleteAsync(
+                    $"api/Message/delete-for-me/{message.Id}/{UserId}");
+
+                Messages.Remove(message);
+
+                foreach (var chat in Chats.Concat(ArchivedChats))
+                {
+                    chat.Messages.Remove(message);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(ex.Message);
+            }
+        }
+
+        [RelayCommand]
+        private async Task DeleteMessageForEveryone(Message message)
+        {
+            try
+            {
+                await _apiService.DeleteAsync(
+                    $"api/Message/delete-for-everyone/{message.Id}/{UserId}");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(ex.Message);
             }
         }
 

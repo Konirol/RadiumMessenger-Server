@@ -13,7 +13,7 @@ namespace RadiumMessenger.Client.Services
         {
             _httpClient = new HttpClient
             {
-                BaseAddress = new Uri("https://localhost:7199/")
+                BaseAddress = new Uri("http://127.0.0.1:7199/")
             };
         }
 
@@ -31,6 +31,18 @@ namespace RadiumMessenger.Client.Services
             response.EnsureSuccessStatusCode();
 
             return await response.Content.ReadFromJsonAsync<TResponse>();
+        }
+
+        public async Task PostAsync(string url)
+        {
+            var response = await _httpClient.PostAsync(url, null);
+            response.EnsureSuccessStatusCode();
+        }
+
+        public async Task DeleteAsync(string url)
+        {
+            var response = await _httpClient.DeleteAsync(url);
+            response.EnsureSuccessStatusCode();
         }
     }
 }

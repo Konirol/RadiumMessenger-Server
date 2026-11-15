@@ -58,7 +58,7 @@ namespace RadiumMessenger.Server.Hubs
 
         public async Task MarkAsRead(int messageId, int userId)
         {
-            var message = _db.Messages
+            var message = await _db.Messages
                 .FirstOrDefaultAsync(m => m.Id == messageId);
 
             if (message == null)

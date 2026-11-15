@@ -47,7 +47,9 @@ namespace RadiumMessenger.Server.Services
         public async Task<List<Chat>> GetUserChatsAsync(int userId)
         {
             var chats = await _db.Chats
-                .Where(c => c.FirstUserId == userId || c.SecondUserId == userId)
+                .Where(c =>
+                    (c.FirstUserId == userId && !c.IsArchivedForFirstUser) ||
+                    (c.SecondUserId == userId && !c.IsArchivedForSecondUser))
                 .Include(c => c.Messages)
                 .ToListAsync();
 
@@ -60,9 +62,77 @@ namespace RadiumMessenger.Server.Services
                 var otherUser = await _db.Users.FindAsync(otherUserId);
 
                 chat.OtherUsername = otherUser?.Username ?? "Неизвестный пользователь";
+
+                foreach (var message in chat.Messages)
+                {
+                    var sender = await _db.Users.FindAsync(message.SenderId);
+
+                    message.SenderUsername = sender?.Username
+                        ?? "Неизвестный пользователь";
+                }
             }
 
             return chats;
+        }
+
+        public async Task<List<Chat>> GetArchivedUserChatsAsync(int userId)
+        {
+            var chats = await _db.Chats
+                .Where(c =>
+                    (c.FirstUserId == userId && c.IsArchivedForFirstUser) ||
+                    (c.SecondUserId == userId && c.IsArchivedForSecondUser))
+                .Include(c => c.Messages)
+                .ToListAsync();
+
+            foreach (var chat in chats)
+            {
+                int otherUserId = chat.FirstUserId == userId
+                    ? chat.SecondUserId
+                    : chat.FirstUserId;
+
+                var otherUser = await _db.Users.FindAsync(otherUserId);
+
+                chat.OtherUsername = otherUser?.Username 
+                    ?? "Неизвестный пользователь";
+            }
+
+            return chats;
+        }
+
+        public async Task<bool> ArchiveChatAsync(int chatId, int userId)
+        {
+            var chat = await _db.Chats.FirstOrDefaultAsync(c => c.Id == chatId);
+
+            if (chat == null)
+                return false;
+
+            if (chat.FirstUserId == userId)
+                chat.IsArchivedForFirstUser = true;
+            else if (chat.SecondUserId == userId)
+                chat.IsArchivedForSecondUser = true;
+            else
+                return false;
+
+            await _db.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> UnarchiveChatAsync(int chatId, int userId)
+        {
+            var chat = await _db.Chats.FirstOrDefaultAsync(c => c.Id == chatId);
+
+            if (chat == null)
+                return false;
+
+            if (chat.FirstUserId == userId)
+                chat.IsArchivedForFirstUser = false;
+            else if (chat.SecondUserId == userId)
+                chat.IsArchivedForSecondUser = false;
+            else
+                return false;
+
+            await _db.SaveChangesAsync();
+            return true;
         }
     }
 }

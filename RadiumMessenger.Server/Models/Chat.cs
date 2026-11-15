@@ -10,6 +10,10 @@ namespace RadiumMessenger.Server.Models
 
         public int SecondUserId { get; set; }
 
+        public bool IsArchivedForFirstUser { get; set; } = false;
+
+        public bool IsArchivedForSecondUser { get; set; } = false;
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         [NotMapped]

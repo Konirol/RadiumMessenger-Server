@@ -40,6 +40,8 @@ namespace RadiumMessenger.Server
 
             var app = builder.Build();
 
+            app.Urls.Add("http://127.0.0.1:7199");
+
             using (var scope = app.Services.CreateScope())
             {
                 var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -111,6 +113,76 @@ namespace RadiumMessenger.Server
                     }
                 }
 
+                using (var chatCommand = connection.CreateCommand())
+                {
+                    chatCommand.CommandText = "PRAGMA table_info('Chats')";
+
+                    using var chatReader = await chatCommand.ExecuteReaderAsync();
+
+                    bool isArchivedForFirstUserExists = false;
+                    bool isArchivedForSecondUserExists = false;
+
+                    while (await chatReader.ReadAsync())
+                    {
+                        string columnName = chatReader.GetString(1);
+
+                        if (columnName == "IsArchivedForFirstUser")
+                            isArchivedForFirstUserExists = true;
+
+                        if (columnName == "IsArchivedForSecondUser")
+                            isArchivedForSecondUserExists = true;
+                    }
+
+                    await chatReader.CloseAsync();
+
+                    if (!isArchivedForFirstUserExists)
+                    {
+                        await db.Database.ExecuteSqlRawAsync(
+                            "ALTER TABLE Chats ADD COLUMN IsArchivedForFirstUser INTEGER NOT NULL DEFAULT 0");
+                    }
+
+                    if (!isArchivedForSecondUserExists)
+                    {
+                        await db.Database.ExecuteSqlRawAsync(
+                            "ALTER TABLE Chats ADD COLUMN IsArchivedForSecondUser INTEGER NOT NULL DEFAULT 0");
+                    }
+                }
+
+                using (var deleteCommand = connection.CreateCommand())
+                {
+                    deleteCommand.CommandText = "PRAGMA table_info('Messages');";
+
+                    using var deleteReader = await deleteCommand.ExecuteReaderAsync();
+
+                    bool firstDeletedExists = false;
+                    bool secondDeletedExists = false;
+
+                    while (await deleteReader.ReadAsync())
+                    {
+                        string columnName = deleteReader.GetString(1);
+
+                        if (columnName == "IsDeletedForFirstUser")
+                            firstDeletedExists = true;
+
+                        if (columnName == "IsDeletedForSecondUser")
+                            secondDeletedExists = true;
+                    }
+
+                    await deleteReader.CloseAsync();
+
+                    if (!firstDeletedExists)
+                    {
+                        await db.Database.ExecuteSqlRawAsync(
+                            "ALTER TABLE Messages ADD COLUMN IsDeletedForFirstUser INTEGER NOT NULL DEFAULT 0");
+                    }
+
+                    if (!secondDeletedExists)
+                    {
+                        await db.Database.ExecuteSqlRawAsync(
+                            "ALTER TABLE Messages ADD COLUMN IsDeletedForSecondUser INTEGER NOT NULL DEFAULT 0");
+                    }
+                }
+
                 await connection.CloseAsync();
 
                 db.Database.ExecuteSqlRaw(@"
@@ -130,8 +202,6 @@ namespace RadiumMessenger.Server
                 app.UseSwagger();
                 app.UseSwaggerUI();
             }
-
-            app.UseHttpsRedirection();
 
             app.UseAuthorization();
 

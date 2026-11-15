@@ -48,10 +48,60 @@ namespace RadiumMessenger.Server.Controllers
                 {
                     m.Id,
                     m.SenderId,
+                    m.SenderUsername,
                     m.Text,
-                    m.SentAt
+                    m.SentAt,
+                    m.IsDelivered,
+                    m.IsRead
                 })
             }));
+        }
+
+        [HttpGet("archived/{userId}")]
+        public async Task<IActionResult> GetArchivedUserChats(int userId)
+        {
+            var chats = await _chatService.GetArchivedUserChatsAsync(userId);
+
+            return Ok(chats.Select(c => new
+            {
+                c.Id,
+                c.FirstUserId,
+                c.SecondUserId,
+                c.OtherUsername,
+                c.CreatedAt,
+                Messages = c.Messages.Select(m => new
+                {
+                    m.Id,
+                    m.SenderId,
+                    m.SenderUsername,
+                    m.Text,
+                    m.SentAt,
+                    m.IsDelivered,
+                    m.IsRead
+                })
+            }));
+        }
+
+        [HttpPost("archive/{chatId}/{userId}")]
+        public async Task<IActionResult> ArchiveChat(int chatId, int userId)
+        {
+            bool result = await _chatService.ArchiveChatAsync(chatId, userId);
+
+            if (!result)
+                return NotFound("Чат не найден или у вас нет доступа.");
+
+            return Ok("Чат архивирован.");
+        }
+
+        [HttpPost("unarchive/{chatId}/{userId}")]
+        public async Task<IActionResult> UnarchiveChat(int chatId, int userId)
+        {
+            bool result = await _chatService.UnarchiveChatAsync(chatId, userId);
+
+            if (!result)
+                return NotFound("Чат не найден или у вас нет доступа.");
+
+            return Ok("Чат восстановлен.");
         }
     }
 }

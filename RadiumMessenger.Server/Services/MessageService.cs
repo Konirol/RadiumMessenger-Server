@@ -34,10 +34,17 @@ namespace RadiumMessenger.Server.Services
                 dto.SenderId != chat.SecondUserId)
                 return null;
 
+            var sender = await _db.Users
+                .FirstOrDefaultAsync(u => u.Id == dto.SenderId);
+
+            if (sender == null)
+                return null;
+
             var message = new Message
             {
                 ChatId = dto.ChatId,
                 SenderId = dto.SenderId,
+                SenderUsername = sender.Username,
                 Text = dto.Text.Trim()
             };
 
@@ -51,6 +58,7 @@ namespace RadiumMessenger.Server.Services
                     message.Id,
                     message.ChatId,
                     message.SenderId,
+                    message.SenderUsername,
                     message.Text,
                     message.SentAt,
                     message.IsDelivered,
@@ -58,6 +66,50 @@ namespace RadiumMessenger.Server.Services
                 });
 
             return message;
+        }
+
+        public async Task<bool> DeleteForMeAsync(int messageId, int userId)
+        {
+            var message = await _db.Messages
+                .FirstOrDefaultAsync(m => m.Id == messageId);
+
+            if (message == null)
+                return false;
+
+            var chat = await _db.Chats.FirstOrDefaultAsync(c =>
+                c.Id == message.ChatId);
+
+            if (chat == null)
+                return false;
+
+            if (chat.FirstUserId == userId)
+                message.IsDeletedForFirstUser = true;
+            else if (chat.SecondUserId == userId)
+                message.IsDeletedForSecondUser = true;
+            else
+                return false;
+
+            await _db.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> DeleteForEveryoneAsync(int messageId, int userId)
+        {
+            var message = await _db.Messages
+                .FirstOrDefaultAsync(m => m.Id == messageId);
+
+            if (message == null || message.SenderId != userId)
+                return false;
+
+            var chatId = message.ChatId;
+
+            _db.Messages.Remove(message);
+            await _db.SaveChangesAsync();
+
+            await _hub.Clients.Group($"chat_{chatId}")
+                .SendAsync("MessageDeleted", messageId);
+
+            return true;
         }
 
         public async Task MarkAsDeliveredAsync(int messageId)

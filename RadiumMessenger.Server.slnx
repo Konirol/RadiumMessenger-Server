@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".gitignore" />
+  </Folder>
   <Project Path="RadiumMessenger.Client/RadiumMessenger.Client.csproj" Id="3dda546c-3b4b-4f5e-b391-c52a92bea197" />
   <Project Path="RadiumMessenger.Server/RadiumMessenger.Server.csproj" />
 </Solution>
